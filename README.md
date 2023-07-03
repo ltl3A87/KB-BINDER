@@ -1,5 +1,6 @@
 # KB-BINDER
 The implementation for paper [Few-shot In-context Learning for Knowledge Base Question Answering](http://arxiv.org/abs/2305.01750)
+<img width="1237" alt="KBQA-BINDER" src="https://github.com/ltl3A87/KB-BINDER/assets/55973524/d9ceefbe-392e-4749-bf1f-58a93e97b254">
 
 ## Set up
 
@@ -12,8 +13,8 @@ $ pip install -r requirements.txt
 
 ## Run Experiments
 ```
-$ python3 import few_shot_kbqa.py --shot_num 40 --temperature 0.3
- --api_key [your api key] --engine [engine model name]
---train_data_path [your train data path] --eva_data_path [your eva data path]
---fb_roles_path [your freebase roles file path] --surface_map_path [your surface map file path]
+$ python3 import few_shot_kbqa.py --shot_num 40 --temperature 0.3 \
+ --api_key [your api key] --engine [engine model name] \
+ --train_data_path [your train data path] --eva_data_path [your eva data path] \
+ --fb_roles_path [your freebase roles file path] --surface_map_path [your surface map file path]
 ```
