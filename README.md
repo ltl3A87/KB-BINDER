@@ -10,6 +10,8 @@ The implementation for paper [Few-shot In-context Learning for Knowledge Base Qu
 ```
 $ pip install -r requirements.txt
 ```
+You can download the index file and put it under `contriever_fb_relation
+/freebase_contriever_index/` with this [link](https://drive.google.com/file/d/1hnyW-_k0YaAUZDTdYzhbKDTnFuLEW-W2/view?usp=sharing).
 
 ## Run Experiments
 ```
@@ -18,3 +20,5 @@ $ python3 import few_shot_kbqa.py --shot_num 40 --temperature 0.3 \
  --train_data_path [your train data path] --eva_data_path [your eva data path] \
  --fb_roles_path [your freebase roles file path] --surface_map_path [your surface map file path]
 ```
+
+As the codex API has been closed, you may use other engine.
