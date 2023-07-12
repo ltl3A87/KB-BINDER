@@ -4,7 +4,7 @@ The implementation for paper [Few-shot In-context Learning for Knowledge Base Qu
 
 ## Set up
 
-1. Set up the knowledge base server: Follow [Freebase Setup](https://github.com/dki-lab/Freebase-Setup) to set up a Virtuoso triplestore service. After starting your virtuoso service, replace the url in `utils/sparql_executer.py` with your own.
+1. Set up the knowledge base server: Follow [Freebase Setup](https://github.com/dki-lab/Freebase-Setup) to set up a Virtuoso triplestore service. After starting your virtuoso service, replace the url in `sparql_executer.py` with your own.
 2. Download GrailQA dataset and other required files from the [link](https://drive.google.com/drive/folders/1g8ZpMLSw95KwjisXEw07rVVC3TJ1LZdn?usp=sharing) and put them under `data/`.
 3. Install all required libraries:
 ```
