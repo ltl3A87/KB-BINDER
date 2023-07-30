@@ -10,7 +10,7 @@ sparql.setReturnFormat(JSON)
 
 path = str(Path(__file__).parent.absolute())
 
-with open(path + '/GrailQA/ontology/fb_roles', 'r') as f:
+with open(path + '/data/fb_roles', 'r') as f:
     contents = f.readlines()
 
 roles = set()
