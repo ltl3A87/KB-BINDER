@@ -96,7 +96,7 @@ def type_generator(question, prompt_type, api_key, LLM_engine):
     return gene_exp
 
 
-def ep_generator(question, selected_examples, temp, que_to_s_dict_train, question_to_mid_dict, api_key):
+def ep_generator(question, selected_examples, temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine):
     prompt = ""
     for que in selected_examples:
         prompt = prompt + "Question: " + que + "\n" + "Logical Form: " + sub_mid_to_fn(que, que_to_s_dict_train[que], question_to_mid_dict) + "\n"
@@ -106,7 +106,7 @@ def ep_generator(question, selected_examples, temp, que_to_s_dict_train, questio
         try:
             openai.api_key = api_key
             answer_modi = openai.Completion.create(
-                engine="code-davinci-002",
+                engine=LLM_engine,
                 prompt=prompt,
                 temperature=temp,
                 max_tokens=256,
@@ -423,11 +423,11 @@ def all_combiner_evaluation(data_batch, selected_quest_compare, selected_quest_c
         if gene_type == "Comparison;":
             gene_exps = ep_generator(data["question"],
                                      list(set(selected_quest_compare) | set(selected_quest)),
-                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key)
+                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine)
         else:
             gene_exps = ep_generator(data["question"],
                                      list(set(selected_quest_compose) | set(selected_quest)),
-                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key)
+                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine)
         two_hop_rela_dict = {}
         answer_candi = []
         removed_none_candi = []
@@ -527,7 +527,7 @@ def main():
     contriever_searcher = FaissSearcher('contriever_fb_relation/freebase_contriever_index', query_encoder)
     hsearcher = HybridSearcher(contriever_searcher, bm25_searcher)
     rela_corpus = LuceneSearcher('contriever_fb_relation/index_relation_fb')
-    dev_data = process_file(args.dev_data_path)
+    dev_data = process_file(args.eva_data_path)
     train_data = process_file(args.train_data_path)
     que_to_s_dict_train = {data["question"]: data["s_expression"] for data in train_data}
     question_to_mid_dict = process_file_node(args.train_data_path)
