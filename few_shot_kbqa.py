@@ -34,12 +34,12 @@ def select_shot_prompt_train(train_data_in, shot_number):
         selected_quest_compare = []
         each_type_num = shot_number // 2
         for data in train_data_in:
-            if any([x in data["question"] for x in compare_list]):
+            if any([x in data['s_expression'] for x in compare_list]):
                 selected_quest_compare.append(data["question"])
                 if len(selected_quest_compare) == each_type_num:
                     break
         for data in train_data_in:
-            if not any([x in data["question"] for x in compare_list]):
+            if not any([x in data['s_expression'] for x in compare_list]):
                 selected_quest_compose.append(data["question"])
                 if len(selected_quest_compose) == each_type_num:
                     break
@@ -96,9 +96,21 @@ def type_generator(question, prompt_type, api_key, LLM_engine):
     return gene_exp
 
 
-def ep_generator(question, selected_examples, temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine):
+def ep_generator(question, selected_examples, temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine,
+                 retrieval=False, corpus=None, nlp_model=None, bm25_train_full=None, retrieve_number=100):
+    if retrieval:
+        tokenized_query = nlp_model(question)
+        tokenized_query = [token.lemma_ for token in tokenized_query]
+        top_ques = bm25_train_full.get_top_n(tokenized_query, corpus, n=retrieve_number)
+        doc_scores = bm25_train_full.get_scores(tokenized_query)
+        top_score = max(doc_scores)
+        logger.info("top_score: {}".format(top_score))
+        logger.info("top related questions: {}".format(top_ques))
+        selected_examples = top_ques
     prompt = ""
     for que in selected_examples:
+        if not que_to_s_dict_train[que]:
+            continue
         prompt = prompt + "Question: " + que + "\n" + "Logical Form: " + sub_mid_to_fn(que, que_to_s_dict_train[que], question_to_mid_dict) + "\n"
     prompt = prompt + "Question: " + question + "\n" + "Logical Form: "
     got_result = False
@@ -362,7 +374,7 @@ def bound_to_existed(question, s_expression, found_mids, two_hop_rela_dict,
                     answer = generate_answer([exp])
                 except:
                     answer = None
-                if answer != None:
+                if answer is not None:
                     return answer, updating_two_hop_rela_dict, exp
     return None, updating_two_hop_rela_dict, None
 
@@ -406,7 +418,9 @@ def process_file_codex_output(filename_before, filename_after):
 
 def all_combiner_evaluation(data_batch, selected_quest_compare, selected_quest_compose, selected_quest,
                             prompt_type, hsearcher, rela_corpus, relationships, temp, que_to_s_dict_train,
-                            question_to_mid_dict, api_key, LLM_engine, name_to_id_dict, bm25_all_fns, all_fns, relationship_to_enti):
+                            question_to_mid_dict, api_key, LLM_engine, name_to_id_dict, bm25_all_fns, all_fns,
+                            relationship_to_enti, retrieval=False, corpus=None, nlp_model=None, bm25_train_full=None,
+                            retrieve_number=100):
     correct = [0] * 6
     total = [0] * 6
     no_ans = [0] * 6
@@ -418,16 +432,24 @@ def all_combiner_evaluation(data_batch, selected_quest_compare, selected_quest_c
         label = []
         for ans in data["answer"]:
             label.append(ans["answer_argument"])
-        gene_type = type_generator(data["question"], prompt_type, api_key, LLM_engine)
-        logger.info("gene_type: {}".format(gene_type))
-        if gene_type == "Comparison;":
+        if not retrieval:
+            gene_type = type_generator(data["question"], prompt_type, api_key, LLM_engine)
+            logger.info("gene_type: {}".format(gene_type))
+        else:
+            gene_type = None
+
+        if gene_type == "Comparison":
             gene_exps = ep_generator(data["question"],
                                      list(set(selected_quest_compare) | set(selected_quest)),
-                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine)
+                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine,
+                                     retrieval=retrieval, corpus=corpus, nlp_model=nlp_model,
+                                     bm25_train_full=bm25_train_full, retrieve_number=retrieve_number)
         else:
             gene_exps = ep_generator(data["question"],
                                      list(set(selected_quest_compose) | set(selected_quest)),
-                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine)
+                                     temp, que_to_s_dict_train, question_to_mid_dict, api_key, LLM_engine,
+                                     retrieval=retrieval, corpus=corpus, nlp_model=nlp_model,
+                                     bm25_train_full=bm25_train_full, retrieve_number=retrieve_number)
         two_hop_rela_dict = {}
         answer_candi = []
         removed_none_candi = []
@@ -480,7 +502,7 @@ def all_combiner_evaluation(data_batch, selected_quest_compare, selected_quest_c
             logger.info("label: {}".format(label))
             if answer is None:
                 no_ans[idx] += 1
-            elif list(answer) == label:
+            elif set(answer) == set(label):
                 correct[idx] += 1
             total[idx] += 1
             em_score = correct[idx] / total[idx]
@@ -507,6 +529,7 @@ def parse_args():
                         default=None, help='the api key to access LLM')
     parser.add_argument('--engine', type=str, metavar='N',
                         default="code-davinci-002", help='engine name of LLM')
+    parser.add_argument('--retrieval', action='store_true', help='whether to use retrieval-augmented KB-BINDER')
     parser.add_argument('--train_data_path', type=str, metavar='N',
                         default="data/GrailQA/grailqa_v1.0_train.json", help='training data path')
     parser.add_argument('--eva_data_path', type=str, metavar='N',
@@ -531,16 +554,30 @@ def main():
     train_data = process_file(args.train_data_path)
     que_to_s_dict_train = {data["question"]: data["s_expression"] for data in train_data}
     question_to_mid_dict = process_file_node(args.train_data_path)
-    selected_quest_compose, selected_quest_compare, selected_quest = select_shot_prompt_train(train_data, args.shot_num)
+    if not args.retrieval:
+        selected_quest_compose, selected_quest_compare, selected_quest = select_shot_prompt_train(train_data, args.shot_num)
+    else:
+        selected_quest_compose = []
+        selected_quest_compare = []
+        selected_quest = []
     all_ques = selected_quest_compose + selected_quest_compare
-    prompt_type = ''
-    random.shuffle(all_ques)
-    for que in all_ques:
-        prompt_type = prompt_type + "Question: " + que + "\nType of the question: "
-        if que in selected_quest_compose:
-            prompt_type += "Composition\n"
-        else:
-            prompt_type += "Comparison\n"
+    corpus = [data["question"] for data in train_data]
+    tokenized_train_data = []
+    for doc in corpus:
+        nlp_doc = nlp(doc)
+        tokenized_train_data.append([token.lemma_ for token in nlp_doc])
+    bm25_train_full = BM25Okapi(tokenized_train_data)
+    if not args.retrieval:
+        prompt_type = ''
+        random.shuffle(all_ques)
+        for que in all_ques:
+            prompt_type = prompt_type + "Question: " + que + "\nType of the question: "
+            if que in selected_quest_compose:
+                prompt_type += "Composition\n"
+            else:
+                prompt_type += "Comparison\n"
+    else:
+        prompt_type = ''
     with open(args.fb_roles_path) as f:
         lines = f.readlines()
     relationships = []
@@ -552,19 +589,6 @@ def main():
         entities_set.append(info[0])
         entities_set.append(info[2])
         relationship_to_enti[info[1]] = [info[0], info[2]]
-    tokenized_relationships_all = [re.split('\.|_', doc) for doc in relationships]
-    rela_drops_all = []
-    lemma_tags = {"NNS", "NNPS"}
-    for rela in tokenized_relationships_all:
-        drops_rela_all = []
-        for word in rela:
-            doc = nlp(word)
-            if len(doc) > 0:
-                if doc[0].tag_ in lemma_tags:
-                    drops_rela_all.append(doc[0].lemma_)
-                else:
-                    drops_rela_all.append(word)
-        rela_drops_all.append(drops_rela_all)
 
     with open(args.surface_map_path) as f:
         lines = f.readlines()
@@ -585,7 +609,8 @@ def main():
     all_combiner_evaluation(dev_data, selected_quest_compose, selected_quest_compare, selected_quest, prompt_type,
                             hsearcher, rela_corpus, relationships, args.temperature, que_to_s_dict_train,
                             question_to_mid_dict, args.api_key, args.engine, name_to_id_dict, bm25_all_fns,
-                            all_fns, relationship_to_enti)
+                            all_fns, relationship_to_enti, retrieval=args.retrieval, corpus=corpus, nlp_model=nlp,
+                            bm25_train_full=bm25_train_full, retrieve_number=args.shot_num)
 
 if __name__=="__main__":
     main()
