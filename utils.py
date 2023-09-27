@@ -22,9 +22,14 @@ def process_file_node(filename):
         key = example["question"]
         question_to_mid_dict[key] = {}
         node_list = example["graph_query"]["nodes"]
-        for node in node_list:
-            if node["node_type"] == "entity":
-                question_to_mid_dict[key][node["id"]] = node["friendly_name"]
+        if node_list:
+            for node in node_list:
+                if node["node_type"] == "entity":
+                    question_to_mid_dict[key][node["id"]] = node["friendly_name"]
+        else:
+            topic_mid = example["topic_entity"]
+            question_to_mid_dict[key][topic_mid] = example["topic_entity_name"]
+
     return question_to_mid_dict
 
 
