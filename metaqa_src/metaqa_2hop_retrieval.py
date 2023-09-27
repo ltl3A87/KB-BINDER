@@ -2,11 +2,6 @@ import openai
 import json
 import spacy
 from time import sleep
-api_key = ["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",
-                  "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",
-                  "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",
-                  "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",
-                  "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"]
 nlp = spacy.load("en_core_web_sm")
 from rank_bm25 import BM25Okapi
 from bm25_trial import BM25_self
